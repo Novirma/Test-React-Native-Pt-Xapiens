@@ -6,25 +6,93 @@ import {
   useWindowDimensions,
   TouchableOpacity,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import Logo from '../../../assets/images/logo-bg.png';
+import LogoXapiens from '../../../assets/images/logoPtXapiens.png'
 import Input from '../../components/Input/Input';
 import Input2 from '../../components/Input/Input2';
 import Button from '../../components/Button/Button';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import { ApiLogin } from '../../api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 const SignInScreen = () => {
+
+  const navigation = useNavigation(); // Gunakan useNavigation
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const onSignInPressed = () => {
-    console.warn('Sign in');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const checkToken = async () => {
+    try {
+      const user = await AsyncStorage.getItem('user');
+      if (user) {
+        const parsedUser = JSON.parse(user);
+        if (parsedUser.token) {
+          navigation.navigate('Home'); // Jika token ada, arahkan ke Home
+        }
+      }
+      console.log("Check token berhasil");
+      
+    } catch (error) {
+      console.error('Failed to retrieve token', error);
+    }
+  };
+
+  useEffect(() => {
+    checkToken();
+  }, [navigation]);
+
+  const onSignInPressed = async () => {
+    setIsLoading(true);
+    const value = {
+      email: email,
+      password: password
+  }
+    try {
+      const { data, status } = await ApiLogin(value);
+      console.log(status, " iko status");
+      
+      if (status == 200) {
+        const user = {
+          email: value.email,
+          token: data.token,
+        };
+        await AsyncStorage.setItem('user', JSON.stringify(user));
+        console.log('Login successful', user);
+
+        // Arahkan ke halaman Home
+        navigation.navigate('Home');
+        
+      } 
+      // else if (status == 400) {
+      //   console.log(data.error);
+      //   Alert.alert('Login Error', "User tidak ditemukan", [
+      //     { text: 'OK' }
+      //   ]);
+        
+      // }
+
+    } catch (error) {
+      console.log(error);
+      Alert.alert('Error', "User Salah" , [
+        { text: 'OK' }
+      ]);
+      // notificationError(error.response?.data.error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <View style={styles.root}>
       {/* Logo by jobseekers */}
-      <Image source={Logo} style={styles.logo} resizeMode="contain" />
+      <Image source={LogoXapiens} style={styles.logo} resizeMode="contain" />
       <Text style={styles.text}>Sign in</Text>
 
       {/* Input email and password */}
@@ -39,7 +107,18 @@ const SignInScreen = () => {
       <Text style={styles.text2}>Forgot password?</Text>
 
       {/* Button sign in */}
-      <Button text={'Sign In'} onPress={onSignInPressed} />
+      {/* <Button text={'Sign In'} onPress={onSignInPressed} /> */}
+      <TouchableOpacity
+        style={styles.button}
+        onPress={onSignInPressed}
+        disabled={isLoading} // Nonaktifkan tombol jika sedang loading
+      >
+        {isLoading ? (
+          <ActivityIndicator size="small" color="#ffffff" />
+        ) : (
+          <Text style={styles.buttonText}>Sign In</Text>
+        )}
+      </TouchableOpacity>
 
       {/* UI line and text 'or' */}
       <View style={styles.container}>
@@ -79,6 +158,7 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: 250,
+    height:150,
     marginLeft: 60,
   },
   text: {
@@ -108,6 +188,16 @@ const styles = StyleSheet.create({
   text5: {
     color: '#006083',
     fontSize: 14,
+  },
+  button: {
+    backgroundColor: '#008A00',
+    padding: 12,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
   },
   line: {
     borderBottomColor: '#000',
